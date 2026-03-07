@@ -44,13 +44,23 @@ const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
 // Reset Admin Password
 app.post('/api/admin/reset-password', async (req, res) => {
   console.log('Reset password route hit');
-  const { newPassword } = req.body;
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
-  await prisma.admin.update({
-    where: { username: 'admin' },
-    data: { password: hashedPassword },
-  });
-  res.json({ success: true });
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword) {
+      console.log('Reset password failed: No newPassword provided');
+      return res.status(400).json({ error: 'No newPassword provided' });
+    }
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    await prisma.admin.update({
+      where: { username: 'admin' },
+      data: { password: hashedPassword },
+    });
+    console.log('Password reset successfully');
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error instanceof Error ? error.message : String(error) });
+  }
 });
 
 // Temporary route to check admin

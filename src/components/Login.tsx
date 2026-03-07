@@ -61,7 +61,8 @@ export default function Login() {
               if (res.ok) {
                 console.log('Password reset successfully');
               } else {
-                console.error('Password reset failed');
+                const errorData = await res.json();
+                console.error('Password reset failed:', errorData);
               }
             } catch (err) {
               console.error('Password reset error:', err);
