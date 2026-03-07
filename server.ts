@@ -184,7 +184,7 @@ app.delete('/api/quotes/:id', async (req, res) => {
 });
 
 // Clean quotes (remove surrounding quotes)
-app.post('/api/quotes/clean', async (req, res) => {
+app.post('/api/quotes/clean', authenticateAdmin, async (req, res) => {
   try {
     const quotes = await prisma.quote.findMany();
     for (const quote of quotes) {

@@ -152,11 +152,14 @@ export default function AdminDashboard() {
     
     try {
       setLoading(true);
+      const token = localStorage.getItem('adminToken');
       const res = await fetch('/api/quotes/import', {
         method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Import failed');
       alert(`Successfully imported ${data.addedCount} quotes.`);
       setImportFile(null);
       fetchQuotes();
@@ -229,10 +232,17 @@ export default function AdminDashboard() {
             </div>
             <button 
               onClick={async () => {
-                if (!confirm('Are you sure you want to remove double quotes from all quotes?')) return;
-                await fetch('/api/quotes/clean', { method: 'POST' });
-                alert('Quotes cleaned.');
-                fetchQuotes();
+                try {
+                  const token = localStorage.getItem('adminToken');
+                  const res = await fetch('/api/quotes/clean', { 
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}` }
+                  });
+                  if (!res.ok) throw new Error('Failed to clean quotes');
+                  fetchQuotes();
+                } catch (error) {
+                  console.error('Failed to clean quotes:', error);
+                }
               }}
               className="flex items-center gap-2 px-4 py-2 rounded-full border border-charcoal/20 hover:bg-charcoal/5 transition-colors text-sm uppercase tracking-wider"
             >
