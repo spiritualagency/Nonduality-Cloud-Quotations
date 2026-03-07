@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Quote {
+  id        String    @id @default(uuid())
+  text      String
+  author    String
+  category  String    @default("Miscellaneous")
+  source    String    @default("repository")
+  used      Boolean   @default(false)
+  usedDate  DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model Admin {
+  id       String @id @default(uuid())
+  username String @unique
+  password String
+}

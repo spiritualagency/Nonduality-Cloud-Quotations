@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:./dev.db
+      - JWT_SECRET=supersecret
+      - NODE_ENV=production
+    volumes:
+      - ./uploads:/app/uploads
+      - ./dev.db:/app/dev.db
