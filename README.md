@@ -1,5 +1,5 @@
 <div style="text-align: center;">
-  <img src="https://img.spiritual.agency/i/0tagQq81" 
+  <img src="https://img.spiritual.agency/i/YLAgVNrh" 
        width="1200" 
        height="475" 
        alt="The Spiritual Agency GitHub Banner" />
