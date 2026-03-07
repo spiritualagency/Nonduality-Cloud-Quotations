@@ -26,17 +26,6 @@ if (dbUrl && dbUrl.startsWith('"') && dbUrl.endsWith('"')) {
 const app = express();
 const PORT = 3000;
 
-// Reset Admin Password (Temporary)
-app.post('/api/admin/reset-password-temp', async (req, res) => {
-  console.log('Reset password temp route hit');
-  const hashedPassword = await bcrypt.hash('admin', 10);
-  await prisma.admin.update({
-    where: { username: 'admin' },
-    data: { password: hashedPassword },
-  });
-  res.json({ success: true });
-});
-
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL environment variable is required');
   process.exit(1);
@@ -52,9 +41,16 @@ import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
 
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.url}`);
-  next();
+// Reset Admin Password
+app.post('/api/admin/reset-password', async (req, res) => {
+  console.log('Reset password route hit');
+  const { newPassword } = req.body;
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  await prisma.admin.update({
+    where: { username: 'admin' },
+    data: { password: hashedPassword },
+  });
+  res.json({ success: true });
 });
 
 // Admin authentication middleware
