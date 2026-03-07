@@ -359,22 +359,6 @@ app.post('/api/quote/save', async (req, res) => {
   }
 });
 
-// Debug: List categories
-app.get('/api/debug/categories', async (req, res) => {
-  try {
-    const quotes = await prisma.quote.findMany({
-      select: { category: true }
-    });
-    const counts = quotes.reduce((acc: any, quote: any) => {
-      acc[quote.category] = (acc[quote.category] || 0) + 1;
-      return acc;
-    }, {});
-    res.json(counts);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch categories' });
-  }
-});
-
 // Get random quote (for Refresh button)
 app.get('/api/quote/random', async (req, res) => {
   try {
