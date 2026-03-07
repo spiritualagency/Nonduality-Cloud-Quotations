@@ -72,17 +72,21 @@ const authenticateAdmin = (req: any, res: any, next: any) => {
 
 // Initialize Admin
 async function initAdmin() {
-  console.log('Checking for admin user...');
-  const adminExists = await prisma.admin.findFirst();
-  if (!adminExists) {
-    console.log('Admin user not found, creating...');
-    const hashedPassword = await bcrypt.hash('admin', 10);
-    await prisma.admin.create({
-      data: { username: 'admin', password: hashedPassword },
-    });
-    console.log('Admin user created');
-  } else {
-    console.log('Admin user already exists');
+  try {
+    console.log('Checking for admin user...');
+    const adminExists = await prisma.admin.findFirst();
+    if (!adminExists) {
+      console.log('Admin user not found, creating...');
+      const hashedPassword = await bcrypt.hash('admin', 10);
+      await prisma.admin.create({
+        data: { username: 'admin', password: hashedPassword },
+      });
+      console.log('Admin user created');
+    } else {
+      console.log('Admin user already exists');
+    }
+  } catch (error) {
+    console.error('Error initializing admin:', error);
   }
 }
 initAdmin();
