@@ -3,7 +3,7 @@ FROM node:22-alpine
 WORKDIR /app
 
 # Install build dependencies for native modules
-RUN apk add --no-cache python3 make g++ libc6-compat
+RUN apk add --no-cache python3 make g++ libc6-compat openssl
 
 # Copy package files
 COPY package*.json ./
