@@ -53,6 +53,18 @@ app.post('/api/admin/reset-password', async (req, res) => {
   res.json({ success: true });
 });
 
+// Temporary route to check admin
+app.get('/api/admin/check', async (req, res) => {
+  const admin = await prisma.admin.findFirst({ where: { username: 'admin' } });
+  res.json({ exists: !!admin });
+});
+
+// Temporary route to check quotes
+app.get('/api/quotes/count', async (req, res) => {
+  const count = await prisma.quote.count();
+  res.json({ count });
+});
+
 // Admin authentication middleware
 const authenticateAdmin = (req: any, res: any, next: any) => {
   const token = req.headers.authorization?.split(' ')[1];
