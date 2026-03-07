@@ -50,9 +50,15 @@ app.post('/api/admin/reset-password', async (req, res) => {
       console.log('Reset password failed: No newPassword provided');
       return res.status(400).json({ error: 'No newPassword provided' });
     }
+    const admin = await prisma.admin.findFirst({ where: { username: 'admin' } });
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+    console.log('Admin found:', admin.id);
     const hashedPassword = bcrypt.hashSync(newPassword, 10);
+    console.log('Attempting update with ID:', admin.id);
     await prisma.admin.update({
-      where: { username: 'admin' },
+      where: { id: admin.id },
       data: { password: hashedPassword },
     });
     console.log('Password reset successfully');
