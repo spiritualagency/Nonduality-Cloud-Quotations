@@ -47,6 +47,26 @@ export default function Login() {
           className="w-full p-2 mb-4 border rounded"
         />
         <button type="submit" className="w-full p-2 bg-charcoal text-ivory rounded">Login</button>
+        <button
+          type="button"
+          onClick={async () => {
+            console.log('Reset password button clicked');
+            try {
+              console.log('Resetting password...');
+              const res = await fetch('/api/admin/reset-password-temp', { method: 'POST' });
+              if (res.ok) {
+                console.log('Password reset successfully');
+              } else {
+                console.error('Password reset failed');
+              }
+            } catch (err) {
+              console.error('Password reset error:', err);
+            }
+          }}
+          className="w-full p-2 mt-4 bg-gray-500 text-ivory rounded"
+        >
+          Reset Password to "admin"
+        </button>
       </form>
     </div>
   );

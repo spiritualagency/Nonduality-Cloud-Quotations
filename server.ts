@@ -26,6 +26,17 @@ if (dbUrl && dbUrl.startsWith('"') && dbUrl.endsWith('"')) {
 const app = express();
 const PORT = 3000;
 
+// Reset Admin Password (Temporary)
+app.post('/api/admin/reset-password-temp', async (req, res) => {
+  console.log('Reset password temp route hit');
+  const hashedPassword = await bcrypt.hash('admin', 10);
+  await prisma.admin.update({
+    where: { username: 'admin' },
+    data: { password: hashedPassword },
+  });
+  res.json({ success: true });
+});
+
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL environment variable is required');
   process.exit(1);
@@ -40,6 +51,11 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
+
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
 
 // Admin authentication middleware
 const authenticateAdmin = (req: any, res: any, next: any) => {
@@ -56,13 +72,17 @@ const authenticateAdmin = (req: any, res: any, next: any) => {
 
 // Initialize Admin
 async function initAdmin() {
+  console.log('Checking for admin user...');
   const adminExists = await prisma.admin.findFirst();
   if (!adminExists) {
+    console.log('Admin user not found, creating...');
     const hashedPassword = await bcrypt.hash('admin', 10);
     await prisma.admin.create({
       data: { username: 'admin', password: hashedPassword },
     });
     console.log('Admin user created');
+  } else {
+    console.log('Admin user already exists');
   }
 }
 initAdmin();
@@ -72,24 +92,18 @@ app.post('/api/admin/login', async (req, res) => {
   console.log('Login attempt for:', req.body.username);
   const { username, password } = req.body;
   const admin = await prisma.admin.findUnique({ where: { username } });
-  if (!admin || !(await bcrypt.compare(password, admin.password))) {
-    console.log('Login failed: Invalid credentials');
+  if (!admin) {
+    console.log('Login failed: Admin not found');
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+  const match = await bcrypt.compare(password, admin.password);
+  if (!match) {
+    console.log('Login failed: Password mismatch');
     return res.status(401).json({ error: 'Invalid credentials' });
   }
   console.log('Login successful');
   const token = jwt.sign({ id: admin.id }, JWT_SECRET, { expiresIn: '1h' });
   res.json({ token });
-});
-
-// Reset Password
-app.post('/api/admin/reset-password', authenticateAdmin, async (req: any, res: any) => {
-  const { newPassword } = req.body;
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
-  await prisma.admin.update({
-    where: { id: req.admin.id },
-    data: { password: hashedPassword },
-  });
-  res.json({ success: true });
 });
 
 // Protect admin routes
@@ -345,19 +359,47 @@ app.post('/api/quote/save', async (req, res) => {
   }
 });
 
+// Debug: List categories
+app.get('/api/debug/categories', async (req, res) => {
+  try {
+    const quotes = await prisma.quote.findMany({
+      select: { category: true }
+    });
+    const counts = quotes.reduce((acc: any, quote: any) => {
+      acc[quote.category] = (acc[quote.category] || 0) + 1;
+      return acc;
+    }, {});
+    res.json(counts);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
 // Get random quote (for Refresh button)
 app.get('/api/quote/random', async (req, res) => {
   try {
-    const unusedQuotes = await prisma.quote.findMany({
+    let unusedQuotes = await prisma.quote.findMany({
       where: { used: false },
     });
     
-    if (unusedQuotes.length > 0) {
-      const randomIndex = Math.floor(Math.random() * unusedQuotes.length);
-      return res.json(unusedQuotes[randomIndex]);
+    if (unusedQuotes.length === 0) {
+      // Reset all to unused
+      await prisma.quote.updateMany({
+        data: { used: false, usedDate: null },
+      });
+      unusedQuotes = await prisma.quote.findMany();
     }
     
-    // If no unused quotes in DB, fetch from internet using Gemini API
+    if (unusedQuotes.length > 0) {
+      const randomIndex = Math.floor(Math.random() * unusedQuotes.length);
+      const selectedQuote = await prisma.quote.update({
+        where: { id: unusedQuotes[randomIndex].id },
+        data: { used: true, usedDate: new Date() }
+      });
+      return res.json({ ...selectedQuote, debug: { length: unusedQuotes.length, index: randomIndex } });
+    }
+    
+    // If no quotes in DB at all, fetch from internet using Gemini API
     return res.json({ action: 'fetch_gemini' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch random quote' });

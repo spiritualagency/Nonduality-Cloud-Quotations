@@ -66,6 +66,7 @@ export default function QuoteCard() {
       }
 
       setQuote(quoteData);
+      console.log('Received quote:', quoteData);
 
       const bgRes = await fetch('/api/background');
       const bgData = await bgRes.json();
