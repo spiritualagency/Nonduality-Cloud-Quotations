@@ -53,7 +53,11 @@ export default function Login() {
             console.log('Reset password button clicked');
             try {
               console.log('Resetting password...');
-              const res = await fetch('/api/admin/reset-password-temp', { method: 'POST' });
+              const res = await fetch('/api/admin/reset-password', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newPassword: 'admin' })
+              });
               if (res.ok) {
                 console.log('Password reset successfully');
               } else {
