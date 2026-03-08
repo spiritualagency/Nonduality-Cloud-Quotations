@@ -99,6 +99,7 @@ async function initAdmin() {
   try {
     console.log('Checking for admin user...');
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin';
+    console.log('Using admin password:', adminPassword ? '****' : 'default');
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
     
     const admin = await prisma.admin.findFirst({ where: { username: 'admin' } });
@@ -108,14 +109,14 @@ async function initAdmin() {
       await prisma.admin.create({
         data: { username: 'admin', password: hashedPassword },
       });
-      console.log('Admin user created');
+      console.log('Admin user created successfully');
     } else {
       console.log('Admin user exists, updating password...');
       await prisma.admin.update({
         where: { id: admin.id },
         data: { password: hashedPassword },
       });
-      console.log('Admin password updated');
+      console.log('Admin password updated successfully');
     }
   } catch (error) {
     console.error('Error initializing admin:', error);
