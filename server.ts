@@ -16,7 +16,6 @@ const __dirname = dirname(__filename);
 
 dotenv.config();
 
-console.log('DATABASE_URL:', process.env.DATABASE_URL);
 
 // Fix for Prisma: If DATABASE_URL is wrapped in quotes in the environment, remove them.
 let dbUrl = process.env.DATABASE_URL;
@@ -32,6 +31,7 @@ if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL environment variable is required');
   process.exit(1);
 }
+
 const prisma = new PrismaClient();
 const upload = multer({ storage: multer.memoryStorage() });
 
