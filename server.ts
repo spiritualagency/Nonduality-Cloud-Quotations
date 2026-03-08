@@ -16,6 +16,7 @@ const __dirname = dirname(__filename);
 
 dotenv.config();
 
+
 // Fix for Prisma: If DATABASE_URL is wrapped in quotes in the environment, remove them.
 let dbUrl = process.env.DATABASE_URL;
 if (dbUrl && dbUrl.startsWith('"') && dbUrl.endsWith('"')) {
@@ -30,6 +31,7 @@ if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL environment variable is required');
   process.exit(1);
 }
+
 const prisma = new PrismaClient();
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -83,13 +85,19 @@ app.get('/api/quotes/count', async (req, res) => {
 
 // Admin authentication middleware
 const authenticateAdmin = (req: any, res: any, next: any) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  const authHeader = req.headers.authorization;
+  console.log('Auth header:', authHeader);
+  const token = authHeader?.split(' ')[1];
+  if (!token) {
+    console.log('No token provided');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.admin = decoded;
     next();
   } catch (error) {
+    console.log('Token verification failed:', error);
     res.status(401).json({ error: 'Unauthorized' });
   }
 };
@@ -279,26 +287,30 @@ app.post('/api/quotes/import', upload.single('file'), async (req, res) => {
 
     let addedCount = 0;
     for (const row of importedQuotes) {
-      const text = (row.Quote || row.text || '').replace(/^"+|"+$/g, '');
-      const author = row.Author || row.author || 'Unknown';
-      let category = row.Category || row.category || 'Miscellaneous';
+      try {
+        const text = (row.Quote || row.text || '').replace(/^"+|"+$/g, '');
+        const author = row.Author || row.author || 'Unknown';
+        let category = row.Category || row.category || 'Miscellaneous';
 
-      if (!text) continue;
+        if (!text) continue;
 
-      // Check for duplicates
-      const existing = await prisma.quote.findFirst({ where: { text } });
-      if (!existing) {
-        await prisma.quote.create({
-          data: { text, author, category, source: 'repository' },
-        });
-        addedCount++;
+        // Check for duplicates
+        const existing = await prisma.quote.findFirst({ where: { text } });
+        if (!existing) {
+          await prisma.quote.create({
+            data: { text, author, category, source: 'repository' },
+          });
+          addedCount++;
+        }
+      } catch (rowError) {
+        console.error('Error importing row:', row, rowError);
       }
     }
 
     res.json({ success: true, addedCount });
   } catch (error) {
-    console.error('Import error:', error);
-    res.status(500).json({ error: 'Failed to import quotes' });
+    console.error('Import error details:', error);
+    res.status(500).json({ error: 'Failed to import quotes', details: error instanceof Error ? error.message : String(error) });
   }
 });
 
@@ -551,6 +563,9 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(express.static('dist'));
+    app.get('*', (req, res) => {
+      res.sendFile(join(__dirname, 'dist', 'index.html'));
+    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {
