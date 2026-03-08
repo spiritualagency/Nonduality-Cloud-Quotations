@@ -14,6 +14,7 @@ model Quote {
   author    String
   category  String    @default("Miscellaneous")
   source    String    @default("repository")
+  imageUrl  String?
   used      Boolean   @default(false)
   usedDate  DateTime?
   createdAt DateTime  @default(now())

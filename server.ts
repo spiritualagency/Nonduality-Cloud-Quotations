@@ -374,9 +374,10 @@ app.get('/api/quote/daily', async (req, res) => {
       return res.json({ action: 'fetch_gemini' });
     } else {
       // Mark repo quote as used
+      const imageUrl = await getBackgroundImage(selectedQuote.category);
       selectedQuote = await prisma.quote.update({
         where: { id: selectedQuote.id },
-        data: { used: true, usedDate: new Date() }
+        data: { used: true, usedDate: new Date(), imageUrl }
       });
     }
 
@@ -409,6 +410,50 @@ app.post('/api/quote/save', async (req, res) => {
   }
 });
 
+// OG Sharing route
+app.get('/quote/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const quote = await prisma.quote.findUnique({ where: { id } });
+    
+    if (!quote) {
+      return res.redirect('/');
+    }
+
+    const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+    const imageUrl = (quote.imageUrl && quote.imageUrl.trim() !== '') ? quote.imageUrl : 'https://picsum.photos/seed/nonduality/1200/630';
+
+    const indexPath = process.env.NODE_ENV === 'production' 
+      ? join(__dirname, 'dist', 'index.html')
+      : join(__dirname, 'index.html');
+
+    let html = fs.readFileSync(indexPath, 'utf-8');
+
+    // Inject meta tags
+    const metaTags = `<title>${quote.text}</title>
+<meta property="og:title" content="${quote.text}" />
+<meta property="og:description" content="— ${quote.author}" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Nonduality Quotes" />
+<meta property="og:image" content="${imageUrl}" />
+<meta property="og:image:secure_url" content="${imageUrl}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:url" content="${baseUrl}/quote/${id}" />
+<link rel="canonical" href="${baseUrl}/quote/${id}" />
+<meta name="twitter:card" content="summary_large_image" />`;
+
+    // Replace title and inject meta tags before </head>
+    html = html.replace(/<title>.*?<\/title>/s, '');
+    html = html.replace('</head>', `${metaTags}</head>`);
+
+    res.send(html);
+  } catch (e) {
+    console.error('OG route error:', e);
+    res.redirect('/');
+  }
+});
+
 // Get random quote (for Refresh button)
 app.get('/api/quote/random', async (req, res) => {
   try {
@@ -426,9 +471,10 @@ app.get('/api/quote/random', async (req, res) => {
     
     if (unusedQuotes.length > 0) {
       const randomIndex = Math.floor(Math.random() * unusedQuotes.length);
+      const imageUrl = await getBackgroundImage(unusedQuotes[randomIndex].category);
       const selectedQuote = await prisma.quote.update({
         where: { id: unusedQuotes[randomIndex].id },
-        data: { used: true, usedDate: new Date() }
+        data: { used: true, usedDate: new Date(), imageUrl }
       });
       return res.json({ ...selectedQuote, debug: { length: unusedQuotes.length, index: randomIndex } });
     }
@@ -440,43 +486,67 @@ app.get('/api/quote/random', async (req, res) => {
   }
 });
 
+// Get specific quote by ID (public)
+app.get('/api/quote/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`Fetching quote with ID: ${id}`);
+    const quote = await prisma.quote.findUnique({ where: { id } });
+    if (!quote) {
+      console.log(`Quote not found: ${id}`);
+      return res.status(404).json({ error: 'Quote not found' });
+    }
+    console.log(`Quote found: ${quote.id}`);
+    res.json(quote);
+  } catch (error) {
+    console.error('Failed to fetch quote:', error);
+    res.status(500).json({ error: 'Failed to fetch quote' });
+  }
+});
+
+// Helper to fetch background image
+async function getBackgroundImage(category: string): Promise<string> {
+  const searchTerms = [category, "nature light", "forest mist", "mountain dawn", "ocean calm"];
+  const term = searchTerms[Math.floor(Math.random() * searchTerms.length)];
+  
+  // Try Pexels first
+  if (process.env.PEXELS_API_KEY) {
+    try {
+      const pexelsRes = await axios.get(`https://api.pexels.com/v1/search?query=${term}&per_page=15&orientation=landscape`, {
+        headers: { Authorization: process.env.PEXELS_API_KEY }
+      });
+      if (pexelsRes.data.photos && pexelsRes.data.photos.length > 0) {
+        const photo = pexelsRes.data.photos[Math.floor(Math.random() * pexelsRes.data.photos.length)];
+        return photo.src.large2x;
+      }
+    } catch (e) {
+      console.error('Pexels error:', e);
+    }
+  }
+  
+  // Try Pixabay
+  if (process.env.PIXABAY_API_KEY) {
+    try {
+      const pixabayRes = await axios.get(`https://pixabay.com/api/?key=${process.env.PIXABAY_API_KEY}&q=${encodeURIComponent(term)}&image_type=photo&orientation=horizontal&per_page=15`);
+      if (pixabayRes.data.hits && pixabayRes.data.hits.length > 0) {
+        const photo = pixabayRes.data.hits[Math.floor(Math.random() * pixabayRes.data.hits.length)];
+        return photo.largeImageURL;
+      }
+    } catch (e) {
+      console.error('Pixabay error:', e);
+    }
+  }
+  
+  // Fallback image
+  const seed = Math.random().toString(36).substring(7);
+  return `https://picsum.photos/seed/${seed}/1920/1080?blur=2`;
+}
+
 // Fetch background image
 app.get('/api/background', async (req, res) => {
   try {
-    const searchTerms = ["nature light", "forest mist", "mountain dawn", "ocean calm"];
-    const term = searchTerms[Math.floor(Math.random() * searchTerms.length)];
-    
-    // Try Pexels first
-    if (process.env.PEXELS_API_KEY) {
-      try {
-        const pexelsRes = await axios.get(`https://api.pexels.com/v1/search?query=${term}&per_page=15&orientation=landscape`, {
-          headers: { Authorization: process.env.PEXELS_API_KEY }
-        });
-        if (pexelsRes.data.photos && pexelsRes.data.photos.length > 0) {
-          const photo = pexelsRes.data.photos[Math.floor(Math.random() * pexelsRes.data.photos.length)];
-          return res.json({ url: photo.src.large2x, source: 'pexels' });
-        }
-      } catch (e) {
-        console.error('Pexels error:', e);
-      }
-    }
-    
-    // Try Pixabay
-    if (process.env.PIXABAY_API_KEY) {
-      try {
-        const pixabayRes = await axios.get(`https://pixabay.com/api/?key=${process.env.PIXABAY_API_KEY}&q=${encodeURIComponent(term)}&image_type=photo&orientation=horizontal&per_page=15`);
-        if (pixabayRes.data.hits && pixabayRes.data.hits.length > 0) {
-          const photo = pixabayRes.data.hits[Math.floor(Math.random() * pixabayRes.data.hits.length)];
-          return res.json({ url: photo.largeImageURL, source: 'pixabay' });
-        }
-      } catch (e) {
-        console.error('Pixabay error:', e);
-      }
-    }
-    
-    // Fallback image
-    const seed = Math.random().toString(36).substring(7);
-    res.json({ url: `https://picsum.photos/seed/${seed}/1920/1080?blur=2`, source: 'picsum-fallback' });
+    const url = await getBackgroundImage(req.query.category as string || 'nature');
+    res.json({ url, source: 'dynamic' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch background' });
   }
@@ -511,7 +581,10 @@ app.get('/embed/daily-quote', async (req, res) => {
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
-          .quote-embed { text-align: center; }
+          body { background-color: ${bg}; color: ${text}; font-family: ${font}; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+          .quote-embed { text-align: center; padding: 20px; }
+          .quote-text { font-size: 1.5rem; font-weight: 500; margin-bottom: 10px; }
+          .quote-author { font-size: 1rem; font-style: italic; color: ${accent}; }
         </style>
       </head>
       <body>
