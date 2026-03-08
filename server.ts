@@ -1,6 +1,7 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { PrismaClient } from '@prisma/client';
+import { execSync } from 'child_process';
 import cors from 'cors';
 import multer from 'multer';
 import Papa from 'papaparse';
@@ -94,9 +95,21 @@ const authenticateAdmin = (req: any, res: any, next: any) => {
   }
 };
 
+// Ensure Database Schema
+async function ensureDatabaseSchema() {
+  try {
+    console.log('Ensuring database schema...');
+    execSync('npx prisma db push', { stdio: 'inherit' });
+    console.log('Database schema pushed successfully');
+  } catch (error) {
+    console.error('Error pushing database schema:', error);
+  }
+}
+
 // Initialize Admin
 async function initAdmin() {
   try {
+    await ensureDatabaseSchema();
     console.log('Checking for admin user...');
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin';
     console.log('Using admin password:', adminPassword ? '****' : 'default');
